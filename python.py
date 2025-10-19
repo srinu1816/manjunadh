@@ -225,7 +225,35 @@ def generate_coupon():
         
     except Exception as e:
         print(f"💥 Error in generate route: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'error': str(e),
+            'coupon': generate_coupon_code(),  # Fallback coupon
+            'database': 'error',
+            'message': 'Using fallback coupon'
+        }), 500
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    try:
+        connection, message = get_db_connection()
+        db_status = "healthy" if connection else "unhealthy"
+        
+        if connection:
+            connection.close()
+            
+        return jsonify({
+            'status': 'ok',
+            'database': db_status,
+            'message': message,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'database': 'unhealthy',
+            'message': str(e)
+        }), 500
 
 # Initialize application
 print("🚀 Starting Random Coupon Generator Application...")
@@ -245,4 +273,4 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"🌐 Starting Flask application on port {port}")
     print("✅ Application is ready!")
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=False)  # Changed debug to False for production
