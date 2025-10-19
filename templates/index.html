@@ -187,6 +187,14 @@
             border-left: 4px solid #6c757d;
         }
 
+        .status-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            font-size: 0.85em;
+        }
+
         @media (max-width: 600px) {
             .container {
                 padding: 25px 20px;
@@ -233,14 +241,15 @@
             {% else %}
                 ❌ Database Disconnected - coupon-db
             {% endif %}
-            <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">{{ db_message }}</div>
+            <div class="status-info">{{ db_message }}</div>
         </div>
 
         <div class="app-info">
             <strong>Application Info:</strong> 
             Click coupon to copy | 
             <a href="/generate" target="_blank">API Endpoint</a> |
-            <a href="/health" target="_blank">Health Check</a>
+            <a href="/health" target="_blank">Health Check</a> |
+            <a href="/test" target="_blank">Connection Test</a>
         </div>
     </div>
 
@@ -344,7 +353,7 @@
             }
             
             if (message) {
-                statusText += `<div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">${message}</div>`;
+                statusText += `<div class="status-info">${message}</div>`;
             }
             
             dbStatus.innerHTML = statusText;
