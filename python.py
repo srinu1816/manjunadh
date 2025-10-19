@@ -240,13 +240,18 @@ def health_check():
         db_status = "healthy" if connection else "unhealthy"
         
         if connection:
+            # Test database query
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT 1 as test')
+                result = cursor.fetchone()
             connection.close()
             
         return jsonify({
             'status': 'ok',
             'database': db_status,
             'message': message,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'server_ip': socket.gethostbyname(socket.gethostname())
         })
     except Exception as e:
         return jsonify({
@@ -255,11 +260,22 @@ def health_check():
             'message': str(e)
         }), 500
 
+@app.route('/test')
+def test_connection():
+    """Test connection endpoint"""
+    return jsonify({
+        'message': 'Flask app is running!',
+        'timestamp': datetime.now().isoformat(),
+        'host': socket.gethostname(),
+        'ip': request.remote_addr
+    })
+
 # Initialize application
 print("🚀 Starting Random Coupon Generator Application...")
 print(f"📊 RDS Endpoint: {DB_CONFIG['host']}")
 print(f"🔑 Database: {DB_CONFIG['database']}")
 print(f"👤 Username: {DB_CONFIG['user']}")
+print(f"🌐 Binding to: 0.0.0.0:5000")
 
 # Initialize database
 init_success, init_message = init_database()
@@ -273,4 +289,5 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"🌐 Starting Flask application on port {port}")
     print("✅ Application is ready!")
-    app.run(host='0.0.0.0', port=port, debug=False)  # Changed debug to False for production
+    # CRITICAL FIX: Bind to 0.0.0.0 to allow external connections
+    app.run(host='0.0.0.0', port=port, debug=False)
