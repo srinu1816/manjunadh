@@ -267,7 +267,8 @@ def test_connection():
         'message': 'Flask app is running!',
         'timestamp': datetime.now().isoformat(),
         'host': socket.gethostname(),
-        'ip': request.remote_addr
+        'ip': request.remote_addr,
+        'server_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     })
 
 # Initialize application
@@ -275,7 +276,6 @@ print("🚀 Starting Random Coupon Generator Application...")
 print(f"📊 RDS Endpoint: {DB_CONFIG['host']}")
 print(f"🔑 Database: {DB_CONFIG['database']}")
 print(f"👤 Username: {DB_CONFIG['user']}")
-print(f"🌐 Binding to: 0.0.0.0:5000")
 
 # Initialize database
 init_success, init_message = init_database()
@@ -288,6 +288,9 @@ else:
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"🌐 Starting Flask application on port {port}")
+    print("🔧 Debug: Checking host binding...")
+    print("📍 Binding to: 0.0.0.0 (all interfaces)")
     print("✅ Application is ready!")
-    # CRITICAL FIX: Bind to 0.0.0.0 to allow external connections
+    
+    # CRITICAL: This must be 0.0.0.0, not 127.0.0.1
     app.run(host='0.0.0.0', port=port, debug=False)
