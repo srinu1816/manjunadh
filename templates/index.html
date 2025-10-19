@@ -233,12 +233,14 @@
             {% else %}
                 ❌ Database Disconnected - coupon-db
             {% endif %}
+            <div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">{{ db_message }}</div>
         </div>
 
         <div class="app-info">
             <strong>Application Info:</strong> 
             Click coupon to copy | 
-            <a href="/generate" target="_blank">API Endpoint</a>
+            <a href="/generate" target="_blank">API Endpoint</a> |
+            <a href="/health" target="_blank">Health Check</a>
         </div>
     </div>
 
@@ -267,7 +269,12 @@
             container.classList.add('loading');
             
             fetch('/generate')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.coupon) {
                         currentCoupon = data.coupon;
@@ -276,17 +283,21 @@
                         showNotification('🎉 New random coupon generated!');
                         
                         // Update database status
-                        updateDbStatus(data.database);
+                        updateDbStatus(data.database, data.message);
+                    } else if (data.error) {
+                        throw new Error(data.error);
                     } else {
                         throw new Error('No coupon received');
                     }
                 })
                 .catch(error => {
                     console.error('Error generating coupon:', error);
-                    couponDisplay.textContent = 'Error - Try Again';
+                    // Generate fallback coupon client-side
+                    currentCoupon = generateFallbackCoupon();
+                    couponDisplay.textContent = currentCoupon;
                     couponDisplay.style.background = 'linear-gradient(45deg, #f44336, #d32f2f)';
-                    showNotification('❌ Failed to generate coupon', true);
-                    updateDbStatus('error');
+                    showNotification('⚠️ Using offline coupon - DB connection failed', true);
+                    updateDbStatus('error', 'Using offline mode');
                 })
                 .finally(() => {
                     generateBtn.disabled = false;
@@ -294,6 +305,15 @@
                     container.classList.remove('loading');
                     isGenerating = false;
                 });
+        }
+
+        function generateFallbackCoupon() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 8; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
         }
 
         function showNotification(message, isError = false) {
@@ -307,37 +327,41 @@
             }, 3000);
         }
 
-        function updateDbStatus(status) {
+        function updateDbStatus(status, message = '') {
             const dbStatus = document.getElementById('dbStatus');
             dbStatus.className = 'db-status db-' + status;
             
+            let statusText = '';
             switch(status) {
                 case 'connected':
-                    dbStatus.innerHTML = '✅ Database Connected - coupon-db';
+                    statusText = '✅ Database Connected - coupon-db';
                     break;
                 case 'error':
-                    dbStatus.innerHTML = '⚠️ Database Error - coupon-db';
+                    statusText = '⚠️ Database Error - coupon-db';
                     break;
                 default:
-                    dbStatus.innerHTML = '❌ Database Disconnected - coupon-db';
+                    statusText = '❌ Database Disconnected - coupon-db';
             }
+            
+            if (message) {
+                statusText += `<div style="font-size: 0.8em; font-weight: normal; margin-top: 5px;">${message}</div>`;
+            }
+            
+            dbStatus.innerHTML = statusText;
         }
 
         // Copy coupon to clipboard when clicked
         document.getElementById('couponDisplay').addEventListener('click', function() {
             if (currentCoupon && currentCoupon !== 'Generating...' && currentCoupon !== 'Error - Try Again') {
-                navigator.clipboard.writeText(currentCoupon).then(() => {
-                    showNotification('✅ Random coupon copied to clipboard!');
-                }).catch(() => {
-                    // Fallback for older browsers
-                    const textArea = document.createElement('textarea');
-                    textArea.value = currentCoupon;
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    showNotification('✅ Random coupon copied to clipboard!');
-                });
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(currentCoupon).then(() => {
+                        showNotification('✅ Random coupon copied to clipboard!');
+                    }).catch(() => {
+                        fallbackCopyToClipboard(currentCoupon);
+                    });
+                } else {
+                    fallbackCopyToClipboard(currentCoupon);
+                }
                 
                 // Click animation
                 this.style.transform = 'scale(0.95)';
@@ -346,6 +370,24 @@
                 }, 150);
             }
         });
+
+        function fallbackCopyToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showNotification('✅ Random coupon copied to clipboard!');
+            } catch (err) {
+                showNotification('❌ Failed to copy coupon', true);
+            }
+            document.body.removeChild(textArea);
+        }
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
