@@ -10,12 +10,12 @@ import socket
 
 app = Flask(__name__)
 
-# Database configuration - UPDATED DATABASE NAME
+# Database configuration - UPDATED CREDENTIALS
 DB_CONFIG = {
-    'host': 'coupon-db.c18swy2galw4.eu-west-1.rds.amazonaws.com',
+    'host': 'coupon-db.c7i4sqkq8oou.eu-west-1.rds.amazonaws.com',  # ← UPDATED ENDPOINT
     'user': 'admin', 
-    'password': 'CouponApp123!',
-    'database': 'coupon_db',  # ← CHANGED TO coupon_db (with underscore)
+    'password': '3j86iHyknpE4knYimwfn',  # ← UPDATED PASSWORD
+    'database': 'coupon_db',
     'port': 3306,
     'charset': 'utf8mb4',
     'cursorclass': pymysql.cursors.DictCursor,
