@@ -278,7 +278,7 @@
         </div>
         
         <button class="generate-btn" onclick="generateNewCoupon()" id="generateBtn">
-            🔄 Generate New Coupon
+             Generate New Coupon
         </button>
 
         <div class="db-status db-{{ db_status }}" id="dbStatus">
@@ -301,7 +301,7 @@
 
     <!-- Notification -->
     <div class="notification" id="notification">
-        ✅ Your coupon is ready!
+         Your coupon is ready!
     </div>
 
     <script>
@@ -318,7 +318,7 @@
             
             // Show loading state
             generateBtn.disabled = true;
-            generateBtn.innerHTML = '⏳ Generating...';
+            generateBtn.innerHTML = ' Generating...';
             couponDisplay.textContent = 'Generating...';
             couponDisplay.style.background = 'linear-gradient(45deg, #ffa726, #ff9800)';
             container.classList.add('loading');
@@ -330,7 +330,7 @@
                         currentCoupon = data.coupon;
                         couponDisplay.textContent = data.coupon;
                         couponDisplay.style.background = 'linear-gradient(45deg, #4CAF50, #45a049)';
-                        showNotification('🎉 New coupon generated!');
+                        showNotification(' New coupon generated!');
                         updateStats(); // Refresh stats
                     } else {
                         throw new Error('No coupon received');
