@@ -12,9 +12,9 @@ app = Flask(__name__)
 
 # Database configuration - UPDATED CREDENTIALS
 DB_CONFIG = {
-    'host': 'coupon-db.c7i4sqkq8oou.eu-west-1.rds.amazonaws.com',
-    'user': 'admin',
-    'password': '705ne95KwXiGWYYHTw3T',
+    'host': 'coupon-db.c7i4sqkq8oou.eu-west-1.rds.amazonaws.com',  # ← UPDATED ENDPOINT
+    'user': 'admin', 
+    'password': '705ne95KwXiGWYYHTw3T',  # ← UPDATED PASSWORD
     'database': 'coupon_db',
     'port': 3306,
     'charset': 'utf8mb4',
@@ -115,7 +115,7 @@ def home():
         
         # Generate coupon
         coupon = generate_coupon_code()
-        print(f"🎫 Generated coupon: {coupon}")
+        print(f" Generated coupon: {coupon}")
         
         # Try to store in database
         connection, db_message = get_db_connection()
@@ -175,6 +175,11 @@ def home():
                 <button onclick="window.location.reload()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">
                     Generate New Coupon
                 </button>
+                <p>
+                    <a href="/stats" style="margin: 0 10px;">📊 Statistics</a>
+                    <a href="/health" style="margin: 0 10px;">❤️ Health Check</a>
+                    <a href="/debug" style="margin: 0 10px;">🐛 Debug Info</a>
+                </p>
             </body>
         </html>
         """
@@ -225,6 +230,163 @@ def generate_coupon():
     except Exception as e:
         print(f"💥 Error in generate route: {e}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/stats')
+def stats():
+    """Get coupon statistics"""
+    connection, db_message = get_db_connection()
+    
+    if not connection:
+        return jsonify({
+            'total_coupons': 0,
+            'used_coupons': 0,
+            'today_coupons': 0,
+            'available_coupons': 0,
+            'database_status': 'disconnected',
+            'message': db_message,
+            'running_mode': 'offline'
+        })
+    
+    try:
+        with connection.cursor() as cursor:
+            # Total coupons
+            cursor.execute('SELECT COUNT(*) as total FROM coupons')
+            total = cursor.fetchone()['total'] or 0
+            
+            # Used coupons
+            cursor.execute('SELECT COUNT(*) as used FROM coupons WHERE used = TRUE')
+            used = cursor.fetchone()['used'] or 0
+            
+            # Today's coupons
+            cursor.execute('SELECT COUNT(*) as today FROM coupons WHERE DATE(created_at) = CURDATE()')
+            today = cursor.fetchone()['today'] or 0
+            
+            # Recent coupons (last hour)
+            cursor.execute('SELECT COUNT(*) as recent FROM coupons WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)')
+            recent = cursor.fetchone()['recent'] or 0
+            
+        return jsonify({
+            'total_coupons': total,
+            'used_coupons': used,
+            'today_coupons': today,
+            'recent_coupons': recent,
+            'available_coupons': total - used,
+            'database_status': 'connected',
+            'message': 'Database connected successfully'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in stats: {e}")
+        return jsonify({
+            'error': str(e),
+            'database_status': 'error'
+        }), 500
+    finally:
+        if connection:
+            connection.close()
+
+@app.route('/health')
+def health():
+    """Health check endpoint"""
+    connection, db_message = get_db_connection()
+    db_status = "connected" if connection else "disconnected"
+    
+    # Test database functionality if connected
+    db_test = False
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT 1 as test')
+                result = cursor.fetchone()
+                db_test = result['test'] == 1
+            connection.close()
+        except Exception as e:
+            db_message = f"Database test failed: {str(e)}"
+            db_status = "error"
+    
+    overall_status = 'healthy' if db_status == 'connected' and db_test else 'unhealthy'
+    
+    return jsonify({
+        'status': overall_status,
+        'database': db_status,
+        'database_test': db_test,
+        'database_message': db_message,
+        'timestamp': datetime.now().isoformat(),
+        'application': 'running',
+        'rds_endpoint': DB_CONFIG['host'],
+        'database_name': DB_CONFIG['database']
+    })
+
+@app.route('/debug')
+def debug():
+    """Debug information endpoint"""
+    connection, db_message = get_db_connection()
+    
+    debug_info = {
+        'application': 'running',
+        'database_connection': 'connected' if connection else 'failed',
+        'database_message': db_message,
+        'rds_endpoint': DB_CONFIG['host'],
+        'database_name': DB_CONFIG['database'],
+        'timestamp': datetime.now().isoformat(),
+        'flask_debug': app.debug
+    }
+    
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                # Get table list
+                cursor.execute("SHOW TABLES")
+                tables = cursor.fetchall()
+                debug_info['tables'] = [list(table.values())[0] for table in tables]
+                
+                # Get record counts
+                if 'coupons' in debug_info['tables']:
+                    cursor.execute("SELECT COUNT(*) as count FROM coupons")
+                    debug_info['coupons_count'] = cursor.fetchone()['count']
+                
+                if 'usage_logs' in debug_info['tables']:
+                    cursor.execute("SELECT COUNT(*) as count FROM usage_logs")
+                    debug_info['usage_logs_count'] = cursor.fetchone()['count']
+                    
+                # Get database version
+                cursor.execute("SELECT VERSION() as version")
+                debug_info['mysql_version'] = cursor.fetchone()['version']
+                
+        except Exception as e:
+            debug_info['database_error'] = str(e)
+        finally:
+            connection.close()
+    
+    return jsonify(debug_info)
+
+@app.route('/coupons')
+def list_coupons():
+    """List recent coupons (for debugging)"""
+    connection, db_message = get_db_connection()
+    
+    if not connection:
+        return jsonify({'error': 'Database connection failed', 'message': db_message}), 500
+    
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('''
+                SELECT coupon_code, created_at, used 
+                FROM coupons 
+                ORDER BY created_at DESC 
+                LIMIT 20
+            ''')
+            coupons = cursor.fetchall()
+            
+        return jsonify({
+            'coupons': coupons,
+            'count': len(coupons),
+            'database_status': 'connected'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        connection.close()
 
 # Initialize application
 print("🚀 Starting Coupon Application...")
